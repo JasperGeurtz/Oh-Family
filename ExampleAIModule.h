@@ -8,6 +8,7 @@
 #define P Position
 
 N BWAPI;
+N Filter;
 N std;
 N UnitTypes;
 using U = Unit;
@@ -22,10 +23,7 @@ set<TP>ep; //enemy positions
 set<U>gw; //gas workers
 set<U>eb; //enemybuildings
 //scouting
-//todo buildingmemory
-//todo workerdefense
 //todo scout all mineralplaces for buildings
-//
 
 string debugstring = "";
 
@@ -42,17 +40,16 @@ struct ExampleAIModule:AIModule {
 			for (auto b : g->getStartLocations()) ep.insert(b);
 			ep.erase(ep.find(s->getStartLocation()));
 		}
-
 		auto e = g->enemy();
-		auto mi = g->getMinerals();
+		auto mi = g->getStaticMinerals();
 		auto auc = [s](int t) {return s->allUnitCount(t); };
 		auto cb = [](int t) {return g->canMake(t);};
 		auto notcarry = [](U u) {return !(u->isCarryingMinerals() || u->isCarryingGas()); };
-		auto sm = s->minerals(), sg = s->gas(), gp = auc(Zerg_Spawning_Pool), rg= sg > 200 ? 2 :3;
+		auto sm = s->minerals(), sg = s->gas(), gp = auc(Zerg_Spawning_Pool),rg=sg>200?2:3;
 
 		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
-		
 		for (auto&u : s->getUnits()){
+			U x = u->getClosestUnit(IsEnemy);
 			switch (u->getType()) {
 			case Zerg_Extractor:
 				if (u->isCompleted()) ex = u;
@@ -61,6 +58,11 @@ struct ExampleAIModule:AIModule {
 				if (!auc(Zerg_Lair) && cb(Zerg_Lair)) u M(Zerg_Lair);
 				break;
 			case Zerg_Drone:
+				//worker defense
+				if (x && u->canAttack() && u->getDistance(x)<33) {
+					u->attack(x);
+					break;
+				}
 				// mine minerals
 				if (u J && u != pb) {
 					U r;size_t d=-1;
@@ -110,10 +112,22 @@ struct ExampleAIModule:AIModule {
 				break;
 			case Zerg_Mutalisk:
 			case Zerg_Zergling:
+				TP tp;
+				for(auto b:ep)tp+=b;
+				tp = tp/ep.size();
+				Region r = g->getRegionAt(P{tp});
 				if (u J) {
-					TP tp;
-					for (auto b : ep)tp += b;
-					u->attack(P{ tp/ep.size() });
+					if (r != u->getRegion()) u->attack(P{ tp });
+					else {
+						//todo maybe ignore larvea/egg
+						if(x)u->attack(x);
+						else {
+							//TODO
+							//if (eb.begin() != eb.end()) u->attack(eb[eb.begin()]);
+							//choose random mineral
+							//else u->attack(mi[rand() % mi.size()]);
+						}
+					}
 				}
 				break;
 			}
