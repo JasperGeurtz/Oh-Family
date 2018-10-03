@@ -13,23 +13,37 @@ N UnitTypes;
 using U = Unit;
 auto&g = BroodwarPtr;
 
-U e; //extractor
+U ex; //extractor
 U pb; //builder
 UnitType tb; //what to build
 int bo=3; //buildorder, default 4pool, if zerg 9pool->muta, if detect flying enemy->4=9
 
 set<TP>ep; //enemy positions
 set<U>gw; //gas workers
+set<U>eb; //enemybuildings
+//scouting
 //todo buildingmemory
+//todo workerdefense
+//todo scout all mineralplaces for buildings
+//
+
+string debugstring = "";
 
 struct ExampleAIModule:AIModule {
-	void onStart() {
-		g->sendText("black sheep wall");
-		for(auto b : g->getStartLocations()) ep.insert(b);
-		ep.erase(ep.find(g->self()->getStartLocation()));
+	
+	void onUnitDestroy(U u) {
+		if (eb.find(u)!=eb.end()) eb.erase(eb.find(u));
 	}
 	void onFrame() {
 		auto s = g->self();
+
+		if (!g->getFrameCount()) {
+			g->sendText("black sheep wall");
+			for (auto b : g->getStartLocations()) ep.insert(b);
+			ep.erase(ep.find(s->getStartLocation()));
+		}
+
+		auto e = g->enemy();
 		auto mi = g->getMinerals();
 		auto auc = [s](int t) {return s->allUnitCount(t); };
 		auto cb = [](int t) {return g->canMake(t);};
@@ -41,7 +55,7 @@ struct ExampleAIModule:AIModule {
 		for (auto&u : s->getUnits()){
 			switch (u->getType()) {
 			case Zerg_Extractor:
-				if (u->isCompleted()) e = u;
+				if (u->isCompleted()) ex = u;
 				break;
 			case Zerg_Hatchery:
 				if (!auc(Zerg_Lair) && cb(Zerg_Lair)) u M(Zerg_Lair);
@@ -76,10 +90,10 @@ struct ExampleAIModule:AIModule {
 					}
 				}
 				// mine gas
-				if (e && notcarry(u)) {
+				if (ex && notcarry(u)) {
 					if (gw.size() < rg) {
 						gw.insert(u);
-						u->gather(e);
+						u->gather(ex);
 					}
 					auto q = gw.find(u);
 					if (gw.size() > rg && q!=gw.end()) {
@@ -104,8 +118,8 @@ struct ExampleAIModule:AIModule {
 				break;
 			}
 		}
-		string sss = "" + to_string(s->supplyUsed()) + " - " + to_string(2 + 16 * auc(Zerg_Overlord));
-		g->sendText(sss.c_str());
+		//debugstring = "" + to_string(s->supplyUsed()) + " - " + to_string(2 + 16 * auc(Zerg_Overlord));
+		debugstring = "eb: " + to_string(eb.size());
 		
 		//build
 		if (pb) {
@@ -122,6 +136,17 @@ struct ExampleAIModule:AIModule {
 			g->drawLineMap(Position{ bl }, pb->getPosition(), Colors::Yellow);
 			if (cb(tb)) pb->build(tb, bl);
 			else pb->move(P{ bl });
+		}		
+
+		for (auto&u : e->getUnits()) {
+			if (u->getType().isFlyer()) {
+				bo = 9;
+			}	
+			if (u->getType().isBuilding()) {
+				eb.insert(u);
+			}
 		}
+
+		g->drawTextScreen(50, 50, debugstring.c_str());
 	}
 };
