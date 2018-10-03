@@ -1,19 +1,21 @@
 #include <BWAPI.h>
 #include <set>
-#define N using namespace
+#define S using
+#define N S namespace
+#define A auto
 #define D ->getDistance
 #define J ->isIdle()
 #define M ->morph
-#define TP TilePosition
-#define P Position
 #define T ->getType()
 
 N BWAPI;
 N Filter;
 N std;
 N UnitTypes;
-using U = Unit;
-auto&g = BroodwarPtr;
+S U = Unit;
+S TP = TilePosition;
+S P = Position;
+A&g = BroodwarPtr;
 
 U ex; //extractor
 U pb; //builder
@@ -22,34 +24,35 @@ int bo=4; //buildorder, default 4pool, if zerg 9pool->muta, if detect flying ene
 
 set<TP>ep; //enemy positions
 set<U>gw; //gas workers
-set<U>eb; //enemybuildings
+set<P>eb; //enemybuildings
 //scouting
 //todo scout all mineralplaces for buildings
+//todo moving buildings
 
 
 struct ExampleAIModule:AIModule {
 	void onUnitDestroy(U u) {
-		eb.erase(u);
+		eb.erase(u->getPosition());
 		if (u T.isResourceDepot())ep.erase(u->getTilePosition());
 	}
 	void onFrame() {
 		string debugstring = "";
-		auto s = g->self();
+		A s = g->self();
 
 		if (!g->getFrameCount()) {
-			g->sendText("black sheep wall");
-			for (auto b : g->getStartLocations()) ep.insert(b);
+			//g->sendText("black sheep wall");
+			for (A b : g->getStartLocations()) ep.insert(b);
 			ep.erase(s->getStartLocation());
 		}
-		auto e = g->enemy();
-		auto mi = g->getStaticMinerals();
-		auto auc = [s](int t) {return s->allUnitCount(t); };
-		auto cb = [](int t) {return g->canMake(t);};
-		auto notcarry = [](U u) {return !(u->isCarryingMinerals() || u->isCarryingGas()); };
-		auto sm = s->minerals(), sg = s->gas(), gp = auc(Zerg_Spawning_Pool),rg=sg>200?2:3;
+		A e = g->enemy();
+		A mi = g->getStaticMinerals();
+		A auc = [s](int t) {return s->allUnitCount(t); };
+		A cb = [](int t) {return g->canMake(t);};
+		A nc = [](U u) {return !(u->isCarryingMinerals() || u->isCarryingGas()); };
+		A sm = s->minerals(), sg = s->gas(), gp = auc(Zerg_Spawning_Pool),rg=sg>200?2:3;
 
 		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
-		for (auto&u : s->getUnits()){
+		for (A&u : s->getUnits()){
 			U x = u->getClosestUnit(IsEnemy && CanAttack); //add not ==larva/egg
 			switch (u->getType()) {
 			case Zerg_Extractor:
@@ -67,12 +70,12 @@ struct ExampleAIModule:AIModule {
 				// mine minerals
 				if (u J && u != pb) {
 					U r; size_t d = -1;
-					for (auto&m : mi)if (m D(u) < d) { d = m D(u); r = m; }
+					for (A&m : mi)if (m D(u) < d) { d = m D(u); r = m; }
 					u->gather(r);
 					mi.erase(r);
 				}
 				//check if we want to build a building
-				if (!pb && notcarry(u) && gw.find(u)==gw.end()) {
+				if (!pb && nc(u) && gw.find(u)==gw.end()) {
 					if (!gp && sm > 191) {
 						pb = u;
 						tb = Zerg_Spawning_Pool;
@@ -93,7 +96,7 @@ struct ExampleAIModule:AIModule {
 					}
 				}
 				// mine gas
-				if (ex && notcarry(u)) {
+				if (ex && nc(u)) {
 					if (gw.size() < rg) {
 						gw.insert(u);
 						u->gather(ex);
@@ -111,22 +114,31 @@ struct ExampleAIModule:AIModule {
 				else u M(Zerg_Zergling);
 				break;
 			case Zerg_Overlord:
-				//if ()
+				if (u J) {
+					if (ep.size() > 1) {
+						TP r; size_t d = -1;
+						for (A p : ep)if (u D(P{ p }) < d) { d = u D(P{ p }); r = p; }
+						u->move(P{ r });
+					}
+					else {
+						//goto random mineral
+					}
+				}
 				break;
 			case Zerg_Mutalisk:
 			case Zerg_Zergling:
 				TP tp;
-				for (auto b : ep)tp += b;
+				for (A b:ep)tp += b;
 				tp = tp / ep.size();
-				Region r = g->getRegionAt(P{ tp });
-				if (u J || u->getOrder() == Orders::Move) {
-					if (r != u->getRegion()) u->attack(P{ tp });
+				if (u J) {// || u->getOrder() == Orders::Move) {
+					if (g->getRegionAt(P{ tp }) != u->getRegion()) u->attack(P{ tp });
 					else {
-						//todo maybe ignore larvea/egg
 						if (x)u->attack(x);
 						else {
-							//TODO
-							//if (eb.begin() != eb.end()) u->attack(eb[eb.begin()]);
+							//attack closest building
+							P r; size_t d = -1;
+							for (A b : eb)if (u D(b) < d) { d = u D(b); r = b; }
+							if (r.x>0&r.y>0) u->attack(r);
 							//choose random mineral
 							//else if (u->getOrder() != Orders::Move)u->move(mi[rand() % mi.size()]);
 						}
@@ -156,12 +168,12 @@ struct ExampleAIModule:AIModule {
 			else pb->move(P{ bl });
 		}		
 
-		for (auto&u : e->getUnits()) {
+		for (A&u : e->getUnits()) {
 			if (u T.isFlyer()) {
 				bo = 9;
 			}	
 			if (u T.isBuilding()) {
-				eb.insert(u);
+				eb.insert(u->getPosition());
 			}
 			if (u T.isResourceDepot()) {
 				TP tp = u->getTilePosition();
