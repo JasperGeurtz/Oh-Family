@@ -6,6 +6,7 @@
 #define M ->morph
 #define TP TilePosition
 #define P Position
+#define T ->getType()
 
 N BWAPI;
 N Filter;
@@ -17,7 +18,7 @@ auto&g = BroodwarPtr;
 U ex; //extractor
 U pb; //builder
 UnitType tb; //what to build
-int bo=3; //buildorder, default 4pool, if zerg 9pool->muta, if detect flying enemy->4=9
+int bo=4; //buildorder, default 4pool, if zerg 9pool->muta, if detect flying enemy->4=9
 
 set<TP>ep; //enemy positions
 set<U>gw; //gas workers
@@ -25,20 +26,20 @@ set<U>eb; //enemybuildings
 //scouting
 //todo scout all mineralplaces for buildings
 
-string debugstring = "";
 
 struct ExampleAIModule:AIModule {
-	
 	void onUnitDestroy(U u) {
-		if (eb.find(u)!=eb.end()) eb.erase(eb.find(u));
+		eb.erase(u);
+		if (u T.isResourceDepot())ep.erase(u->getTilePosition());
 	}
 	void onFrame() {
+		string debugstring = "";
 		auto s = g->self();
 
 		if (!g->getFrameCount()) {
 			g->sendText("black sheep wall");
 			for (auto b : g->getStartLocations()) ep.insert(b);
-			ep.erase(ep.find(s->getStartLocation()));
+			ep.erase(s->getStartLocation());
 		}
 		auto e = g->enemy();
 		auto mi = g->getStaticMinerals();
@@ -49,7 +50,7 @@ struct ExampleAIModule:AIModule {
 
 		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
 		for (auto&u : s->getUnits()){
-			U x = u->getClosestUnit(IsEnemy);
+			U x = u->getClosestUnit(IsEnemy && CanAttack); //add not ==larva/egg
 			switch (u->getType()) {
 			case Zerg_Extractor:
 				if (u->isCompleted()) ex = u;
@@ -59,24 +60,24 @@ struct ExampleAIModule:AIModule {
 				break;
 			case Zerg_Drone:
 				//worker defense
-				if (x && u->canAttack() && u->getDistance(x)<33) {
+				if (x && u->getDistance(x) < 33) {
 					u->attack(x);
 					break;
 				}
 				// mine minerals
 				if (u J && u != pb) {
-					U r;size_t d=-1;
-					for(auto&m:mi)if(m D(u)<d){d=m D(u);r=m;}
+					U r; size_t d = -1;
+					for (auto&m : mi)if (m D(u) < d) { d = m D(u); r = m; }
 					u->gather(r);
 					mi.erase(r);
 				}
 				//check if we want to build a building
-				if (!pb && notcarry(u)) {
+				if (!pb && notcarry(u) && gw.find(u)==gw.end()) {
 					if (!gp && sm > 191) {
 						pb = u;
 						tb = Zerg_Spawning_Pool;
 					}
-					if (bo==9){
+					if (bo == 9) {
 						if (!auc(Zerg_Extractor) && gp && sm > 41) {
 							pb = u;
 							tb = Zerg_Extractor;
@@ -97,35 +98,37 @@ struct ExampleAIModule:AIModule {
 						gw.insert(u);
 						u->gather(ex);
 					}
-					auto q = gw.find(u);
-					if (gw.size() > rg && q!=gw.end()) {
-						gw.erase(q);
+					if (gw.size() > rg && gw.find(u) != gw.end()) {
+						gw.erase(u);
 						u->stop();
 					}
 				}
 				break;
 			case Zerg_Larva:
-				if (auc(Zerg_Drone)<bo) u M(Zerg_Drone);
-				else if (gp && 2+16*auc(Zerg_Overlord)-s->supplyUsed()<2 &&!auc(Zerg_Egg)) u M(Zerg_Overlord);
+				if (auc(Zerg_Drone) < bo) u M(Zerg_Drone);
+				else if (gp && 2 + 16 * auc(Zerg_Overlord) - s->supplyUsed() < 2 && !auc(Zerg_Egg)) u M(Zerg_Overlord);
 				else if (cb(Zerg_Mutalisk)) u M(Zerg_Mutalisk);
 				else u M(Zerg_Zergling);
+				break;
+			case Zerg_Overlord:
+				//if ()
 				break;
 			case Zerg_Mutalisk:
 			case Zerg_Zergling:
 				TP tp;
-				for(auto b:ep)tp+=b;
-				tp = tp/ep.size();
-				Region r = g->getRegionAt(P{tp});
-				if (u J) {
+				for (auto b : ep)tp += b;
+				tp = tp / ep.size();
+				Region r = g->getRegionAt(P{ tp });
+				if (u J || u->getOrder() == Orders::Move) {
 					if (r != u->getRegion()) u->attack(P{ tp });
 					else {
 						//todo maybe ignore larvea/egg
-						if(x)u->attack(x);
+						if (x)u->attack(x);
 						else {
 							//TODO
 							//if (eb.begin() != eb.end()) u->attack(eb[eb.begin()]);
 							//choose random mineral
-							//else u->attack(mi[rand() % mi.size()]);
+							//else if (u->getOrder() != Orders::Move)u->move(mi[rand() % mi.size()]);
 						}
 					}
 				}
@@ -133,11 +136,12 @@ struct ExampleAIModule:AIModule {
 			}
 		}
 		//debugstring = "" + to_string(s->supplyUsed()) + " - " + to_string(2 + 16 * auc(Zerg_Overlord));
-		debugstring = "eb: " + to_string(eb.size());
+		debugstring += "eb: " + to_string(eb.size());
 		
 		//build
 		if (pb) {
 			TP bl;size_t d = -1;
+			//todo blacklist to close to own minerals
 			for (int x = 0; x < g->mapWidth(); x++)for (int y = 0; y < g->mapHeight(); y++) {
 				TP tp{ x,y };
 				if (g->canBuildHere(tp, tb)){
@@ -153,13 +157,21 @@ struct ExampleAIModule:AIModule {
 		}		
 
 		for (auto&u : e->getUnits()) {
-			if (u->getType().isFlyer()) {
+			if (u T.isFlyer()) {
 				bo = 9;
 			}	
-			if (u->getType().isBuilding()) {
+			if (u T.isBuilding()) {
 				eb.insert(u);
 			}
+			if (u T.isResourceDepot()) {
+				TP tp = u->getTilePosition();
+				if (ep.find(tp) != ep.end())for(TP t : ep) if (t != tp) ep.erase(t);
+				debugstring += "-- (" + to_string(tp.x) + ", " + to_string(tp.y) + ") --";
+			}
 		}
+		debugstring += " - ep: ";
+		for (TP t: ep) 
+			debugstring += "(" + to_string(t.x) + ", " + to_string(t.y) + ") ";
 
 		g->drawTextScreen(50, 50, debugstring.c_str());
 	}
