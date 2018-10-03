@@ -39,10 +39,6 @@ struct ExampleAIModule:AIModule {
 	void onFrame() {
 		string debugstring = "";
 
-		for (Region r : g->getAllRegions()) {
-			g->drawBoxMap(r->getBoundsLeft(), r->getBoundsTop(), r->getBoundsRight(), r->getBoundsBottom(), Colors::Red);
-		}
-
 		A s = g->self();
 
 		if (!g->getFrameCount()) {
@@ -192,13 +188,8 @@ struct ExampleAIModule:AIModule {
 			if (u T.isResourceDepot()) {
 				TP tp = u->getTilePosition();
 				if (ep.find(tp) != ep.end())for(TP t : ep) if (t != tp) ep.erase(t);
-				debugstring += "-- (" + to_string(tp.x) + ", " + to_string(tp.y) + ") --";
 			}
 		}
-		debugstring += " - ep: ";
-		for (TP t: ep) 
-			debugstring += "(" + to_string(t.x) + ", " + to_string(t.y) + ") ";
-
 		g->drawTextScreen(50, 50, debugstring.c_str());
 	}
 };
