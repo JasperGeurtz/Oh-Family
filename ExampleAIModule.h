@@ -2,7 +2,7 @@
 #include <set>
 #define S using
 #define N S namespace
-#define A auto
+#define A auto //todo maybe remove Auto everywhere and use the real type
 #define D ->getDistance
 #define J ->isIdle()
 #define M ->morph
@@ -28,6 +28,7 @@ set<P>eb; //enemybuildings
 //scouting
 //todo scout all mineralplaces for buildings
 //todo moving buildings
+//todo find way to attack static defense with wining army numbers
 
 
 struct ExampleAIModule:AIModule {
@@ -37,6 +38,11 @@ struct ExampleAIModule:AIModule {
 	}
 	void onFrame() {
 		string debugstring = "";
+
+		for (Region r : g->getAllRegions()) {
+			g->drawBoxMap(r->getBoundsLeft(), r->getBoundsTop(), r->getBoundsRight(), r->getBoundsBottom(), Colors::Red);
+		}
+
 		A s = g->self();
 
 		if (!g->getFrameCount()) {
@@ -45,6 +51,7 @@ struct ExampleAIModule:AIModule {
 			ep.erase(s->getStartLocation());
 		}
 		A e = g->enemy();
+		if (e->getRace() == Races::Zerg) bo = 9;
 		A mi = g->getStaticMinerals();
 		A auc = [s](int t) {return s->allUnitCount(t); };
 		A cb = [](int t) {return g->canMake(t);};
@@ -53,8 +60,8 @@ struct ExampleAIModule:AIModule {
 
 		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
 		for (A&u : s->getUnits()){
-			U x = u->getClosestUnit(IsEnemy && CanAttack); //add not ==larva/egg
-			switch (u->getType()) {
+			U x = u->getClosestUnit(IsEnemy); //add not ==larva/egg
+			switch (u T) {
 			case Zerg_Extractor:
 				if (u->isCompleted()) ex = u;
 				break;
@@ -63,7 +70,7 @@ struct ExampleAIModule:AIModule {
 				break;
 			case Zerg_Drone:
 				//worker defense
-				if (x && u->getDistance(x) < 33) {
+				if (x && u->canAttack() && u->getDistance(x) < 33) {
 					u->attack(x);
 					break;
 				}
@@ -114,6 +121,7 @@ struct ExampleAIModule:AIModule {
 				else u M(Zerg_Zergling);
 				break;
 			case Zerg_Overlord:
+				//todo run away with overlord if under attack
 				if (u J) {
 					if (ep.size() > 1) {
 						TP r; size_t d = -1;
@@ -121,24 +129,30 @@ struct ExampleAIModule:AIModule {
 						u->move(P{ r });
 					}
 					else {
-						//goto random mineral
+						//todo goto random mineral
 					}
 				}
+				{A p = TP{ u->getTargetPosition() };
+				if (g->isVisible(p) & !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size()) ep.erase(p); }
 				break;
 			case Zerg_Mutalisk:
 			case Zerg_Zergling:
-				TP tp;
-				for (A b:ep)tp += b;
-				tp = tp / ep.size();
-				if (u J) {// || u->getOrder() == Orders::Move) {
-					if (g->getRegionAt(P{ tp }) != u->getRegion()) u->attack(P{ tp });
+				if (u J || u->getOrder() == Orders::Move) {
+					TP tp;
+					for (A b : ep)tp += b;
+					int eps = ep.size();
+					if (eps > 1)tp += s->getStartLocation();
+					if (eps && g->getRegionAt(P{ tp }) != u->getRegion()) u->attack(P{tp/ eps });
 					else {
-						if (x)u->attack(x);
+						if (x)u->attack(x->getPosition());
 						else {
 							//attack closest building
 							P r; size_t d = -1;
 							for (A b : eb)if (u D(b) < d) { d = u D(b); r = b; }
-							if (r.x>0&r.y>0) u->attack(r);
+							if (r.x&r.y) {
+								if (g->isVisible(TP{ r }) & !g->getUnitsOnTile(TP{ r }, IsEnemy && IsBuilding).size()) eb.erase(r);
+								else u->attack(r);
+							}
 							//choose random mineral
 							//else if (u->getOrder() != Orders::Move)u->move(mi[rand() % mi.size()]);
 						}
