@@ -20,7 +20,7 @@ A&g = BroodwarPtr;
 U ex; //extractor
 U pb; //builder
 UnitType tb; //what to build
-int bo=4; //buildorder, default 4pool, if zerg 9pool->muta, if detect flying enemy->4=9
+int bo=4; //buildorder
 
 set<TP>ep; //enemy positions
 set<U>gw; //gas workers
@@ -55,7 +55,7 @@ struct ExampleAIModule:AIModule {
 		A sm = s->minerals(), sg = s->gas(), gp = ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
 
 		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
-		for (A&u : s->getUnits()){
+		for (A&u : s->getUnits()) {
 			U x = u->getClosestUnit(IsEnemy); //add not ==larva/egg
 			switch (u T) {
 			case Zerg_Extractor:
@@ -186,7 +186,7 @@ struct ExampleAIModule:AIModule {
 			}
 			if (u T.isResourceDepot()) {
 				TP tp = u->getTilePosition();
-				if (ep.find(tp) != ep.end())for(TP t : ep) if (t != tp) ep.erase(t);
+				if (ep.find(tp) != ep.end())for(A t : ep) if (t != tp) ep.erase(t);
 			}
 		}
 		g->drawTextScreen(50, 50, debugstring.c_str());
