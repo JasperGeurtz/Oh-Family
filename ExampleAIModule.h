@@ -1,5 +1,6 @@
 #include <BWAPI.h>
 #include <set>
+#include<fstream>
 #include <time.h>
 #define S using
 #define N S namespace
@@ -9,6 +10,7 @@
 #define M ->morph
 #define T ->getType()
 #define R return
+#define B break
 
 N BWAPI;
 N Filter;
@@ -19,6 +21,8 @@ S TP = TilePosition;
 S P = Position;
 A&g = BroodwarPtr;
 
+U fo; //first overlord
+U us; //unit scout
 U ex; //extractor
 U pb; //builder
 UnitType tb; //what to build
@@ -27,10 +31,9 @@ int bo=4; //buildorder
 set<TP>ep; //enemy positions
 set<U>gw; //gas workers
 set<P>eb; //enemybuildings
-//scouting with drones
+//scouting with drones if 4pool: zerglings pop at frame: 2500
 //todo find way to attack static defense with wining army numbers
 //todo send overlords to better places
-//check 4player maps
 
 struct ExampleAIModule:AIModule {
 	void onUnitDestroy(U u) {
@@ -38,37 +41,48 @@ struct ExampleAIModule:AIModule {
 	}
 	void onFrame() {
 		string debugstring = "";
-		A s = g->self();
-		A e = g->enemy();
-		if (!g->getFrameCount()) {
-			for (A b : g->getStartLocations()) ep.insert(b);
+		debugstring += "frame: " + to_string(g->getFrameCount()) + " - ";
+		A s=g->self();
+		A e=g->enemy();
+		A f = g->getFrameCount();
+		if (!f) {
+			for(A b : g->getStartLocations())ep.insert(b);
 			ep.erase(s->getStartLocation());
-			if (e->getRace() == Races::Zerg) bo = 9;
+			if (!e->getRace())bo=9;
 		}
-		A mi = g->getStaticMinerals();
-		A ac = [&](int t) {R s->allUnitCount(t); };
-		A cb = [](int t) {R g->canMake(t);};
-		A nc = [](U u) {R !(u->isCarryingMinerals() || u->isCarryingGas()); };
-		A rm = [&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getInitialPosition();};
-		A bv = [](TP p) {R g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
+		A mi=g->getStaticMinerals();
+		A ac=[&](int t) {R s->allUnitCount(t); };
+		A cb=[](int t) {R g->canMake(t);};
+		A nc=[](U u) {R !(u->isCarryingMinerals() || u->isCarryingGas()); };
+		A rm=[&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getInitialPosition();};
+		A bv=[](TP p) {R g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
+		A sm=s->minerals(),sg=s->gas(),gp=ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
 
-		A sm = s->minerals(), sg = s->gas(), gp = ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
-
-		if (pb && (!pb->exists() || pb->isMorphing())) pb = nullptr;
+		if(pb&&(!pb->exists()||pb->isMorphing()))pb=nullptr;
 		for (A&u : s->getUnits()) {
-			U x = u->getClosestUnit(IsEnemy); //add not ==larva/egg
+			U x = u->getClosestUnit(IsEnemy&&Armor<9);
 			switch (u T) {
 			case Zerg_Extractor:
 				if (u->isCompleted()) ex = u;
-				break;
+				B;
 			case Zerg_Hatchery:
 				if (!ac(Zerg_Lair) && cb(Zerg_Lair)) u M(Zerg_Lair);
-				break;
+				B;
 			case Zerg_Drone:
 				//worker defense
 				if (x && u->canAttack() && u D(x) < 33) {
 					u->attack(x);
-					break;
+					B;
+				}
+				if(bo==4&&!us&&f>2000) {
+					us=u;
+					A vv = set(ep.begin(), ep.end());
+					vv.erase(TP{fo->getTargetPosition()});
+					if (vv.size()) {
+						TP r; size_t d = -1;
+						for (A p : vv)if (u D(P{ p }) < d) { d = u D(P{ p }); r = p; }
+						u->move(P{ r });
+					}
 				}
 				// mine minerals
 				if (u J && u != pb) {
@@ -109,14 +123,15 @@ struct ExampleAIModule:AIModule {
 						u->stop();
 					}
 				}
-				break;
+				B;
 			case Zerg_Larva:
 				if (ac(Zerg_Drone) < bo) u M(Zerg_Drone);
 				else if (gp && 2 + 16 * ac(Zerg_Overlord) - s->supplyUsed() < 2 && !ac(Zerg_Egg)) u M(Zerg_Overlord);
 				else if (cb(Zerg_Mutalisk)) u M(Zerg_Mutalisk);
 				else u M(Zerg_Zergling);
-				break;
+				B;
 			case Zerg_Overlord:
+				if(!fo)fo=u;
 				//todo run away with overlord if under attack
 				if (u J) {
 					if (ep.size() > 1) {
@@ -128,7 +143,7 @@ struct ExampleAIModule:AIModule {
 				}
 				{A p = TP{ u->getTargetPosition() };
 				if (bv(p)) ep.erase(p); }
-				break;
+				B;
 			case Zerg_Mutalisk:
 			case Zerg_Zergling:
 				if (u J || u->getOrder() == Orders::Move) {
@@ -152,38 +167,30 @@ struct ExampleAIModule:AIModule {
 						}
 					}
 				}
-				break;
+				B;
 			}
 		}
 		debugstring += "eb: " + to_string(eb.size());
 		
 		//build
 		if (pb) {
-			g->setLocalSpeed(50);
 			TP bl;size_t d = -1;
 			int xx = pb->getTilePosition().x;
 			int yy = pb->getTilePosition().y;
 			for (int x = xx-9; x <xx+ 9; x++)for (int y = yy-9; y < yy+9; y++) {
 				TP tp{ x,y };
-				if (g->canBuildHere(tp, tb) && g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200) {
-					g->drawBoxMap(x * 32, y * 32, x * 32 + 32, y * 32 + 32, Colors::Green);
+				if (g->canBuildHere(tp, tb) && g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200)
 					if(pb D(P{tp})<d){d=pb D(P{tp});bl=tp;}
-				}
 			}
-			g->drawCircleMap(P{ bl }, 5, Colors::Red,1);
-			g->drawCircleMap(pb->getPosition(), 5, Colors::Red, 1);
-			g->drawLineMap(P{ bl }, pb->getPosition(), Colors::Yellow);
-			if (cb(tb)) pb->build(tb, bl);
-			else pb->move(P{ bl });
+			if (bl) {
+				if (cb(tb)) pb->build(tb, bl);
+				else pb->move(P{ bl });
+			}
 		}		
 
-		for (A&u : e->getUnits()) {
-			if (u T.isFlyer()) {
-				bo = 9;
-			}	
-			if (u T.isBuilding()) {
-				eb.insert(u->getPosition());
-			}
+		for (A&u:e->getUnits()) {
+			if (u T.isFlyer())bo=9;
+			if (u T.isBuilding())eb.insert(u->getPosition());
 			if (u T.isResourceDepot()) {
 				TP tp = u->getTilePosition();
 				if (ep.find(tp) != ep.end())for(A t : ep) if (t != tp) ep.erase(t);
