@@ -9,8 +9,11 @@
 #define J ->isIdle()
 #define M ->morph
 #define T ->getType()
+#define GT ->getTilePosition()
 #define R return
 #define B break
+#define C case
+
 N BWAPI;
 N Filter;
 N std;
@@ -21,7 +24,7 @@ A&g = BroodwarPtr;
 U fo;U us;U ex;U pb;UnitType tb;int bo=4;
 set<TP>ep;set<U>gw;set<P>eb;
 struct ExampleAIModule:AIModule {
-	void onUnitDestroy(U u) {if (u T.isResourceDepot())ep.erase(u->getTilePosition());}
+	void onUnitDestroy(U u) {if (u T.isResourceDepot())ep.erase(u GT);}
 	void onFrame() {
 		A s=g->self();
 		A e=g->enemy();
@@ -43,14 +46,14 @@ struct ExampleAIModule:AIModule {
 		if(pb&&(!pb->exists()||pb->isMorphing()))pb=nullptr;
 		for (A&u : s->getUnits()) {
 			U x = u->getClosestUnit(IsEnemy&&Armor < 9);
-			switch (u T) {
-			case 149:
+			switch(u T) {
+			C 149:
 				if (u->isCompleted()) ex = u;
 				B;
-			case 131:
+			C 131:
 				if (!ac(132) && cb(132))u M(132);
 				B;
-			case 41:
+			C 41:
 				if (x && u->canAttack() && u D(x) < 33) {
 					u->attack(x);
 					B;
@@ -96,13 +99,13 @@ struct ExampleAIModule:AIModule {
 					}
 				}
 				B;
-			case 35:
+			C 35:
 				if (ac(41) < bo) u M(41);
 				else if (gp && 2 + 16 * ac(42) - s->supplyUsed() < 2 && !ac(36))u M(42);
 				else if (cb(43)) u M(43);
 				else u M(37);
 				B;
-			case 42:
+			C 42:
 				if (!fo)fo=u;
 				if (u J) {
 					if (ep.size() > 1) {
@@ -116,8 +119,8 @@ struct ExampleAIModule:AIModule {
 				}
 				if (bv(gt(u))) ep.erase(gt(u));
 				B;
-			case 43:
-			case 37:
+			C 43:
+			C 37:
 				if (u J || u->getOrder() == 6) {
 					TP tp;
 					for (A b : ep)tp += b;
@@ -143,8 +146,8 @@ struct ExampleAIModule:AIModule {
 		if (us&&bv(gt(us)))ep.erase(gt(us));
 		if (pb) {
 			TP bl;size_t d = -1;
-			int xx = pb->getTilePosition().x;
-			int yy = pb->getTilePosition().y;
+			int xx = pb GT.x;
+			int yy = pb GT.y;
 			for (int x = xx-9; x <xx+ 9; x++)for (int y = yy-9; y < yy+9; y++) {
 				TP tp{ x,y };
 				if (g->canBuildHere(tp, tb) && (tb == 149 || g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200))
@@ -160,10 +163,7 @@ struct ExampleAIModule:AIModule {
 		for (A&u:e->getUnits()) {
 			if (u T.isFlyer())bo=9;
 			if (u T.isBuilding())eb.insert(u->getPosition());
-			if (u T.isResourceDepot()) {
-				TP tp = u->getTilePosition();
-				if (ep.find(tp) != ep.end())for(A t : ep) if (t != tp) ep.erase(t);
-			}
+			if (u T.isResourceDepot() && ep.find(u GT) != ep.end())for(A t : ep) if (t != u GT) ep.erase(t);
 		}
 	}
 };
