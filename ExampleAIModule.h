@@ -15,33 +15,25 @@
 N BWAPI;
 N Filter;
 N std;
-N UnitTypes;
 S U = Unit;
 S TP = TilePosition;
 S P = Position;
 A&g = BroodwarPtr;
 
-U fo; //first overlord
-U us; //unit scout
-U ex; //extractor
-U pb; //builder
-UnitType tb; //what to build
+U fo;U us;U ex;U pb;
+UnitType tb;
 int bo=4; //buildorder
 
-set<TP>ep; //enemy positions
-set<U>gw; //gas workers
-set<P>eb; //enemybuildings
-//scouting with drones if 4pool: zerglings pop at frame: 2500
+set<TP>ep;
+set<U>gw;
+set<P>eb;
 //todo find way to attack static defense with wining army numbers
-//todo send overlords to better places
 
 struct ExampleAIModule:AIModule {
 	void onUnitDestroy(U u) {
 		if (u T.isResourceDepot())ep.erase(u->getTilePosition());
 	}
 	void onFrame() {
-		string debugstring = "";
-		debugstring += "frame: " + to_string(g->getFrameCount()) + " - ";
 		A s=g->self();
 		A e=g->enemy();
 		A f = g->getFrameCount();
@@ -56,19 +48,19 @@ struct ExampleAIModule:AIModule {
 		A nc=[](U u) {R !(u->isCarryingMinerals() || u->isCarryingGas()); };
 		A rm=[&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getInitialPosition();};
 		A bv=[](TP p) {R g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
-		A sm=s->minerals(),sg=s->gas(),gp=ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
+		A sm=s->minerals(),sg=s->gas(),gp=ac(142),rg=sg>200?2:3;
 
 		if(pb&&(!pb->exists()||pb->isMorphing()))pb=nullptr;
 		for (A&u : s->getUnits()) {
 			U x = u->getClosestUnit(IsEnemy&&Armor<9);
 			switch (u T) {
-			case Zerg_Extractor:
+			case 149:
 				if (u->isCompleted()) ex = u;
 				B;
-			case Zerg_Hatchery:
-				if (!ac(Zerg_Lair) && cb(Zerg_Lair)) u M(Zerg_Lair);
+			case 131:
+				if(!ac(132)&&cb(132))u M(132);
 				B;
-			case Zerg_Drone:
+			case 41:
 				//worker defense
 				if (x && u->canAttack() && u D(x) < 33) {
 					u->attack(x);
@@ -85,7 +77,7 @@ struct ExampleAIModule:AIModule {
 					}
 				}
 				// mine minerals
-				if (u J && u != pb) {
+				if(u J && u != pb) {
 					U r; size_t d = -1;
 					for (A&m : mi)if (m D(u) < d) { d = m D(u); r = m; }
 					u->gather(r);
@@ -93,22 +85,22 @@ struct ExampleAIModule:AIModule {
 				}
 				//check if we want to build a building
 				if (!pb && nc(u) && gw.find(u)==gw.end()) {
-					if (!gp && sm > 191) {
+					if(!gp && sm > 191) {
 						pb = u;
-						tb = Zerg_Spawning_Pool;
+						tb = 142;
 					}
-					if (bo == 9) {
-						if (!ac(Zerg_Extractor) && gp && sm > 41) {
+					if(bo==9) {
+						if (!ac(149) && gp && sm > 41) {
 							pb = u;
-							tb = Zerg_Extractor;
+							tb = 149;
 						}
-						else if (!ac(Zerg_Spire) && cb(Zerg_Spire)) {
+						else if (!ac(141) && cb(141)) {
 							pb = u;
-							tb = Zerg_Spire;
+							tb = 141;
 						}
 						else if (sm > 450) {
 							pb = u;
-							tb = Zerg_Hatchery;
+							tb = 131;
 						}
 					}
 				}
@@ -124,13 +116,13 @@ struct ExampleAIModule:AIModule {
 					}
 				}
 				B;
-			case Zerg_Larva:
-				if (ac(Zerg_Drone) < bo) u M(Zerg_Drone);
-				else if (gp && 2 + 16 * ac(Zerg_Overlord) - s->supplyUsed() < 2 && !ac(Zerg_Egg)) u M(Zerg_Overlord);
-				else if (cb(Zerg_Mutalisk)) u M(Zerg_Mutalisk);
-				else u M(Zerg_Zergling);
+			case 35:
+				if (ac(41) < bo) u M(41);
+				else if (gp&&2+16*ac(42)-s->supplyUsed()<2&&!ac(36))u M(42);
+				else if (cb(43)) u M(43);
+				else u M(37);
 				B;
-			case Zerg_Overlord:
+			case 42:
 				if(!fo)fo=u;
 				//todo run away with overlord if under attack
 				if (u J) {
@@ -144,8 +136,8 @@ struct ExampleAIModule:AIModule {
 				{A p = TP{ u->getTargetPosition() };
 				if (bv(p)) ep.erase(p); }
 				B;
-			case Zerg_Mutalisk:
-			case Zerg_Zergling:
+			case 43:
+			case 37:
 				if (u J || u->getOrder() == Orders::Move) {
 					TP tp;
 					for (A b : ep)tp += b;
@@ -169,9 +161,7 @@ struct ExampleAIModule:AIModule {
 				}
 				B;
 			}
-		}
-		debugstring += "eb: " + to_string(eb.size());
-		
+		}		
 		//build
 		if (pb) {
 			TP bl;size_t d = -1;
@@ -196,6 +186,5 @@ struct ExampleAIModule:AIModule {
 				if (ep.find(tp) != ep.end())for(A t : ep) if (t != tp) ep.erase(t);
 			}
 		}
-		g->drawTextScreen(50, 50, debugstring.c_str());
 	}
 };
