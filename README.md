@@ -11,8 +11,7 @@ bwapi zerg bot written for AITT2018 (code golfing tournament with a 3000bytes ma
  - Rebuilds techtree required if destroyed
  - Worker Defense
  - "Adaptive" gas/mineral collection depending on needs
- - "Learns" if the build worked last game and adapts accordingly (thanks to n00by for the code snippet for this)
-
+ 
 ### Compilation
 Compile with compiler set to language level C++17
 
