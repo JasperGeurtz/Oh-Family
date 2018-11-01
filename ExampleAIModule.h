@@ -1,5 +1,6 @@
 #include <BWAPI.h>
 #include <set>
+#include <time.h>
 #define S using
 #define N S namespace
 #define A auto
@@ -7,6 +8,7 @@
 #define J ->isIdle()
 #define M ->morph
 #define T ->getType()
+#define R return
 
 N BWAPI;
 N Filter;
@@ -46,11 +48,11 @@ struct ExampleAIModule:AIModule {
 			if (e->getRace() == Races::Zerg) bo = 9;
 		}
 		A mi = g->getStaticMinerals();
-		A ac = [&](int t) {return s->allUnitCount(t); };
-		A cb = [](int t) {return g->canMake(t);};
-		A nc = [](U u) {return !(u->isCarryingMinerals() || u->isCarryingGas()); };
-		A rm = [&](U u) {return vector(mi.begin(), mi.end())[(int)u%mi.size()]->getPosition();};
-		A bv = [](TP p) {return g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
+		A ac = [&](int t) {R s->allUnitCount(t); };
+		A cb = [](int t) {R g->canMake(t);};
+		A nc = [](U u) {R !(u->isCarryingMinerals() || u->isCarryingGas()); };
+		A rm = [&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getPosition();};
+		A bv = [](TP p) {R g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
 
 		A sm = s->minerals(), sg = s->gas(), gp = ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
 
