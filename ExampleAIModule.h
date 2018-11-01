@@ -28,10 +28,9 @@ set<TP>ep; //enemy positions
 set<U>gw; //gas workers
 set<P>eb; //enemybuildings
 //scouting with drones
-//todo scout all mineralplaces for buildings
 //todo find way to attack static defense with wining army numbers
 //todo send overlords to better places
-
+//check 4player maps
 
 struct ExampleAIModule:AIModule {
 	void onUnitDestroy(U u) {
@@ -42,7 +41,6 @@ struct ExampleAIModule:AIModule {
 		A s = g->self();
 		A e = g->enemy();
 		if (!g->getFrameCount()) {
-			//g->sendText("black sheep wall");
 			for (A b : g->getStartLocations()) ep.insert(b);
 			ep.erase(s->getStartLocation());
 			if (e->getRace() == Races::Zerg) bo = 9;
@@ -51,7 +49,7 @@ struct ExampleAIModule:AIModule {
 		A ac = [&](int t) {R s->allUnitCount(t); };
 		A cb = [](int t) {R g->canMake(t);};
 		A nc = [](U u) {R !(u->isCarryingMinerals() || u->isCarryingGas()); };
-		A rm = [&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getPosition();};
+		A rm = [&](U u) {R vector(mi.begin(), mi.end())[time(0)%mi.size()]->getInitialPosition();};
 		A bv = [](TP p) {R g->isVisible(p) && !g->getUnitsOnTile(p, IsEnemy && IsBuilding).size();};
 
 		A sm = s->minerals(), sg = s->gas(), gp = ac(Zerg_Spawning_Pool),rg=sg>200?2:3;
@@ -68,7 +66,7 @@ struct ExampleAIModule:AIModule {
 				break;
 			case Zerg_Drone:
 				//worker defense
-				if (x && u->canAttack() && u->getDistance(x) < 33) {
+				if (x && u->canAttack() && u D(x) < 33) {
 					u->attack(x);
 					break;
 				}
@@ -161,20 +159,20 @@ struct ExampleAIModule:AIModule {
 		
 		//build
 		if (pb) {
+			g->setLocalSpeed(50);
 			TP bl;size_t d = -1;
-			//todo blacklist to close to own minerals
 			int xx = pb->getTilePosition().x;
 			int yy = pb->getTilePosition().y;
 			for (int x = xx-9; x <xx+ 9; x++)for (int y = yy-9; y < yy+9; y++) {
 				TP tp{ x,y };
-				if (g->canBuildHere(tp, tb)){
+				if (g->canBuildHere(tp, tb) && g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200) {
 					g->drawBoxMap(x * 32, y * 32, x * 32 + 32, y * 32 + 32, Colors::Green);
 					if(pb D(P{tp})<d){d=pb D(P{tp});bl=tp;}
 				}
 			}
-			g->drawCircleMap(Position{ bl }, 5, Colors::Red,1);
+			g->drawCircleMap(P{ bl }, 5, Colors::Red,1);
 			g->drawCircleMap(pb->getPosition(), 5, Colors::Red, 1);
-			g->drawLineMap(Position{ bl }, pb->getPosition(), Colors::Yellow);
+			g->drawLineMap(P{ bl }, pb->getPosition(), Colors::Yellow);
 			if (cb(tb)) pb->build(tb, bl);
 			else pb->move(P{ bl });
 		}		
