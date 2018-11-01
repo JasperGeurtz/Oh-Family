@@ -51,7 +51,6 @@ struct ExampleAIModule:AIModule {
 				if (!ac(132) && cb(132))u M(132);
 				B;
 			case 41:
-				//worker defense
 				if (x && u->canAttack() && u D(x) < 33) {
 					u->attack(x);
 					B;
@@ -66,15 +65,12 @@ struct ExampleAIModule:AIModule {
 						u->move(P{ r });
 					}
 				}
-
-				// mine minerals
 				if (u J && u != pb) {
 					U r; size_t d = -1;
 					for (A&m : mi)if (m D(u) < d) { d = m D(u); r = m; }
 					u->gather(r);
 					mi.erase(r);
 				}
-				//check if we want to build a building
 				if (!pb&& nc(u) && gw.find(u) == gw.end()) {
 					if (!gp && sm > 191) { pb = u; tb = 142; }
 					if (bo == 9) {
@@ -89,7 +85,6 @@ struct ExampleAIModule:AIModule {
 						}
 					}
 				}
-				// mine gas
 				if (ex && nc(u)) {
 					if (gw.size() < rg) {
 						gw.insert(u);
@@ -132,14 +127,12 @@ struct ExampleAIModule:AIModule {
 					else {
 						if (x)u->attack(x->getPosition());
 						else {
-							//attack closest building
 							P r; size_t d = -1;
 							for (A b : eb)if (u D(b) < d) { d = u D(b); r = b; }
 							if (r.x&&r.y) {
 								if (bv(TP{ r })) eb.erase(r);
 								else u->attack(r);
 							}
-							//choose random mineral
 							else if (u->getOrder() != 6)u->move(rm(u));
 						}
 					}
@@ -148,19 +141,16 @@ struct ExampleAIModule:AIModule {
 			}
 		}
 		if (us&&bv(gt(us)))ep.erase(gt(us));
-		//build
 		if (pb) {
 			TP bl;size_t d = -1;
 			int xx = pb->getTilePosition().x;
 			int yy = pb->getTilePosition().y;
 			for (int x = xx-9; x <xx+ 9; x++)for (int y = yy-9; y < yy+9; y++) {
 				TP tp{ x,y };
-				if (g->canBuildHere(tp, tb) && g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200)
-					if(pb D(P{tp})<d){d=pb D(P{tp});bl=tp;}
+				if (g->canBuildHere(tp, tb) && (tb == 149 || g->getClosestUnit(P{ tp }, IsMineralField)D(P{ tp }) > 200))
+					if (pb D(P{ tp }) < d) { d = pb D(P{ tp }); bl = tp; }
+			
 			}
-			g->drawCircleMap(P{ bl }, 5, Colors::Red, 1);
-			g->drawCircleMap(pb->getPosition(), 5, Colors::Red, 1);
-			g->drawLineMap(P{ bl }, pb->getPosition(), Colors::Yellow);
 			if (bl) {
 				if (cb(tb)) pb->build(tb, bl);
 				else pb->move(P{ bl });
