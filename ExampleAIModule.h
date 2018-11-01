@@ -69,7 +69,7 @@ struct ExampleAIModule:AIModule {
 			I(!pb&&nc(u)&& gw.find(u)==gw.end()) {
 				I(!gp&&sm>191){pb=u;tb=142;}
 				I(bo == 9) {
-					I(!ac(149)&&gp&& sm > 41) { pb = u; tb = 149; }
+					I(!ac(149)&&gp&&sm>41){pb=u;tb=149; }
 						E I(!ac(141) && cb(141)) {
 							pb = u;
 							tb = 141;
